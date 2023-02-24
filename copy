@@ -1,0 +1,97 @@
+#!/bin/bash
+#copxy output_dir file [file | directory] …
+#
+#ie: copy ../dir1 file11 file2 file3
+#copyx ../dir1 file1 dir2
+#information:
+INFO_SYNTAX="Correct syntax: copy output_dir file [file | directory]"
+INFO_CRT_OUT_DIR="Output directory created, because the one given by you was not exist"
+#errors:
+ERROR_LACK_OF_PARAMETERS="[ERROR] You did not give correct parameters, in this case any parameters"
+ERROR_LACK_OF_PARAMETERS2="[ERROR] You did not give correct file and/or directories to copy"
+ERROR_WRONG_OUTPUT_DIR="[ERROR] You did not give correct output directory, but you given file in its place - wrong"
+ERROR_OUTPUT_DIR_NOT_CREATED="[ERROR] Creating given output directory failed. Sorry."
+ERROR_NO_RIGHT_OUTPUT_DIR="[ERROR] You don not have right to save in output directory"
+ERROR_NON_EXISTING="[ERROR] Files and/or directories given by you does not exist"
+ERROR_NO_RIGHTS_TO_COPY="[ERROR] Unfortunately, program does not have right to copy given files and/or folder. Or there occurs a different error. Sorry"
+ERROR_SOME_FILES_NOT_COPIED="[ERROR] Some files and/or directories were copied because of their non existing nature. Sorry"
+#config
+SPR_EXIST=false
+
+if [[ -z "$1" ]]; then
+  echo "$ERROR_LACK_OF_PARAMETERS"
+  echo "$INFO_SYNTAX"
+  exit 1
+fi
+
+if [[ -z "$2" ]] || [[ "$2" == "" ]]; then
+  echo "$ERROR_LACK_OF_PARAMETERS2"
+  echo "$INFO_SYNTAX"
+  exit 1
+if [[ -e "$1" ]]; then
+  if [[ -d "$1" ]]; then
+    OUTPUT_DIR=$1
+  elif [[ -f $1 ]]; then
+    echo "$ERROR_WRONG_OUTPUT_DIR"
+    echo "$INFO_SYNTAX"
+    exit 1
+  fi
+
+if $SPR_EXIST; then
+    ELEMENT_DOES_NOT_EXIST=0
+    for i in "${@:2}"; do
+      if [[ ! -e "$i" ]]; then
+        ELEMENT_DOES_NOT_EXIST+=1
+      fi
+    done
+    if [ "$ELEMENT_DOES_NOT_EXIST" -gt 0 ]; then
+      echo "$ERROR_NON_EXISTING"
+      echo "$INFO_SYNTAX"
+      exit 1
+    fi
+  fi
+fi
+
+if [[ ! "$OUTPUT_DIR" ]]; then
+  if mkdir -p "$1"; then
+    echo "$INFO_CRT_OUT_DIR"
+    OUTPUT_DIR=$1
+  else
+    echo "$ERROR_OUTPUT_DIR_NOT_CREATED"
+    exit 1
+fi
+fi
+
+TEST_FILE=$OUTPUT_DIR/random_test_valuexy$RANDOM
+touch "$TEST_FILE"
+
+if ! [[ -w $TEST_FILE ]]; then
+  echo "$ERROR_NO_RIGHT_OUTPUT_DIR"
+  exit 1
+fi
+
+rm "$TEST_FILE"
+USER_NAME=$(whoami)
+ELEMENT_NO_RIGHTS=0
+ELEMENT_DIRECTORY_ERROR=0
+for i in "${@:2}"; do
+  if [[ -r $i ]]; then
+    if [[ -d $i ]]; then
+      if ! tar -cf "$OUTPUT_DIR/$(basename "$i").$USER_NAME.tar" "$i"; then
+        ELEMENT_DIRECTORY_ERROR+=1
+      fi
+    else
+      cp -n "$i" "$OUTPUT_DIR/${i##*/}.$USER_NAME"
+    fi
+  else
+    ELEMENT_NO_RIGHTS+=1
+  fi
+done
+
+if [ "$ELEMENT_NO_RIGHTS" -gt 0 ]; then
+  echo "$ERROR_SOME_FILES_NOT_COPIED"
+fi
+
+if [ "$ELEMENT_DIRECTORY_ERROR" -gt 0 ]; then
+  echo "$ERROR_NO_RIGHTS_TO_COPY"
+fi

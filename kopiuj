@@ -1,0 +1,99 @@
+#!/bin/bash
+#kopiuj katalog_docelowy plik [plik | katalog] …
+#
+#np.: kopiuj ../kat1 plik1 plik2 plik3
+#kopiuj ../kat1 plik1 kat2
+#informacje:
+INFO_SKLADNIA="Poprawna składnia to: kopiuj katalog_docelowy plik [plik | katalog]"
+INFO_UTW_KAT_DOC="Utworzono katalog docelowy, gdyż podany przez ciebie jako argument nie istniał"
+#błędy:
+BLAD_BRAK_PARAMETROW="[BŁĄD] Nie podałeś poprawnych, w tym wypadku jakichkolwiek parametrów"
+BLAD_BRAK_PARAMETROW2="[BŁĄD] Nie podałeś poprawnych plikow i/lub katalogow do skopiowania"
+BLAD_NIEPOPR_KAT_DOC="[BŁĄD] Nie podałeś poprawnego katalogu docelowego, zamiast tego podałeś plik"
+BLAD_NIEUTWORZONO_KAT_DOC="[BŁĄD] Nie udało się utworzyć wskazanego katalogu docelowego"
+BLAD_PRAWA_KAT_DOC="[BŁĄD] Nie masz praw zapisu do katalogu docelowego"
+BLAD_NIEISTNIEJACE="[BLĄD] Podałeś jako pliki i/lub katalogi do skopiowania elementy, które nieistnieją"
+BLAD_UPRAWNIENIA_KAT="[BLĄD] Brak uprawnień (lub inny blad) do skopiowaia jednego lub wielu plików w podanym/-ych katalogach, pozostale komunikaty zostaną wyświetlone w j. ang."
+BLAD_NIEKTORE_PLIKI="[BLĄD] Niektóre pliki i/lub katalogi nie zostały skopiowane z powodu braku brak do ich odczytu lub braku elementów"
+#konfiguracja
+SPR_ISTNIENIE=false
+
+if [[ -z "$1" ]]; then
+  echo "$BLAD_BRAK_PARAMETROW"
+  echo "$INFO_SKLADNIA"
+  exit 1
+fi
+
+if [[ -z "$2" ]] || [[ "$2" == "" ]]; then
+  echo "$BLAD_BRAK_PARAMETROW2"
+  echo "$INFO_SKLADNIA"
+  exit 1
+fi
+
+if [[ -e "$1" ]]; then
+  if [[ -d "$1" ]]; then
+    KAT_DOCELOWY=$1
+  elif [[ -f $1 ]]; then
+    echo "$BLAD_NIEPOPR_KAT_DOC"
+    echo "$INFO_SKLADNIA"
+    exit 1
+  fi
+
+if $SPR_ISTNIENIE; then
+    ELEMENT_NIE_ISTNIEJE=0
+    for i in "${@:2}"; do
+      if [[ ! -e "$i" ]]; then
+        ELEMENT_NIE_ISTNIEJE+=1
+      fi
+    done
+    if [ "$ELEMENT_NIE_ISTNIEJE" -gt 0 ]; then
+      echo "$BLAD_NIEISTNIEJACE"
+      echo "$INFO_SKLADNIA"
+      exit 1
+    fi
+  fi
+fi
+
+if [[ ! "$KAT_DOCELOWY" ]]; then
+  if mkdir -p "$1"; then
+    echo "$INFO_UTW_KAT_DOC"
+    KAT_DOCELOWY=$1
+  else
+    echo "$BLAD_NIEUTWORZONO_KAT_DOC"
+    exit 1
+fi
+fi
+
+PLIK_TESTOWY=$KAT_DOCELOWY/losowa_wartosc_spr_xy$RANDOM
+touch "$PLIK_TESTOWY"
+
+if ! [[ -w $PLIK_TESTOWY ]]; then
+  echo "$BLAD_PRAWA_KAT_DOC"
+  exit 1
+fi
+
+rm "$PLIK_TESTOWY"
+NAZWA_USERA=$(whoami)
+ELEMENT_BRAK_PRAW=0
+ELEMENT_KAT_BLAD=0
+for i in "${@:2}"; do
+  if [[ -r $i ]]; then
+    if [[ -d $i ]]; then
+      if ! tar -cf "$KAT_DOCELOWY/$(basename "$i").$NAZWA_USERA.tar" "$i"; then
+        ELEMENT_KAT_BLAD+=1
+      fi
+    else
+      cp -n "$i" "$KAT_DOCELOWY/${i##*/}.$NAZWA_USERA"
+    fi
+  else
+    ELEMENT_BRAK_PRAW+=1
+  fi
+done
+
+if [ "$ELEMENT_BRAK_PRAW" -gt 0 ]; then
+  echo "$BLAD_NIEKTORE_PLIKI"
+fi
+
+if [ "$ELEMENT_KAT_BLAD" -gt 0 ]; then
+  echo "$BLAD_UPRAWNIENIA_KAT"
+fi
